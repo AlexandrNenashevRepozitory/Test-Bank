@@ -1,0 +1,64 @@
+import pytest
+
+from src.main.api.models.create_user_request import CreateUserRequest
+from src.main.api.models.request_credit_request import RequestCreditRequest
+from src.main.api.requests.create_account_requester import CreateAccountRequester
+from src.main.api.requests.create_user_requester import CreateUserRequester
+from src.main.api.requests.request_credit_requester import RequestCreditRequester
+from src.main.api.specs.request_specs import RequestSpecs
+from src.main.api.specs.responce_specs import ResponseSpecs
+
+
+@pytest.mark.api_middle
+class TestRequestCredit:
+    def test_request_credit_valid(self):
+        create_user_request = CreateUserRequest(username="Max600", password="Pas!sw0rd", role="ROLE_CREDIT_SECRET")
+
+        CreateUserRequester(
+            request_spec=RequestSpecs.auth_headers(username="admin", password="123456"),
+            response_spec=ResponseSpecs.request_ok()
+        ).post(create_user_request)
+
+        response = CreateAccountRequester(
+            request_spec=RequestSpecs.auth_headers(username="Max600", password="Pas!sw0rd"),
+            response_spec=ResponseSpecs.request_created()
+        ).post()
+
+        account_id = response.id
+
+        request_credit_request = RequestCreditRequest(accountId=account_id, amount=10000, termMonths=12)
+
+        RequestCreditRequester(
+            request_spec=RequestSpecs.auth_headers(username="Max600", password="Pas!sw0rd"),
+            response_spec=ResponseSpecs.request_created()
+        ).post(request_credit_request)
+
+
+    @pytest.mark.parametrize(
+        "username, amount",
+        [
+            ("Max601", 4999),
+            ("Max602", 15001),
+        ]
+        )
+    def test_request_credit_invalid(self, username, amount):
+        create_user_request = CreateUserRequest(username=username, password="Pas!sw0rd", role="ROLE_CREDIT_SECRET")
+
+        CreateUserRequester(
+            request_spec=RequestSpecs.auth_headers(username="admin", password="123456"),
+            response_spec=ResponseSpecs.request_ok()
+        ).post(create_user_request)
+
+        response = CreateAccountRequester(
+            request_spec=RequestSpecs.auth_headers(username=username, password="Pas!sw0rd"),
+            response_spec=ResponseSpecs.request_created()
+        ).post()
+
+        account_id = response.id
+
+        request_credit_request = RequestCreditRequest(accountId=account_id, amount=amount, termMonths=12)
+
+        RequestCreditRequester(
+            request_spec=RequestSpecs.auth_headers(username=username, password="Pas!sw0rd"),
+            response_spec=ResponseSpecs.request_bad()
+        ).post(request_credit_request)
